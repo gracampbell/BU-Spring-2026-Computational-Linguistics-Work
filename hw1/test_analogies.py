@@ -19,7 +19,9 @@ def cosine_sim(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     :return: An array of shape (m, n), where the entry in row i and
         column j is the cosine similarity between x[i] and y[j]
     """
-    raise NotImplementedError("Problem 3b has not been completed yet!")
+    x_norms = np.linalg.norm(x, axis=1, keepdims=True)
+    y_norms = np.linalg.norm(y, axis=1, keepdims=True)
+    return (x @ y.T) / (x_norms * y_norms.T)
 
 
 def get_closest_words(embeddings: Embeddings, vectors: np.ndarray,
@@ -37,7 +39,20 @@ def get_closest_words(embeddings: Embeddings, vectors: np.ndarray,
         k words that are closest to vectors[i] in the embedding space,
         not necessarily in order
     """
-    raise NotImplementedError("Problem 3c has not been completed yet!")
+
+
+    similarities = cosine_sim(vectors, embeddings.vectors)
+    results = []
+
+    for i in range(similarities.shape[0]) :
+        row = similarities[i]
+        topindices = np.argpartition(-row, k-1)[:k]
+        closestwords = [embeddings.words[j] for j in topindices]
+        results.append(closestwords)
+
+    return results
+
+
 
 
 # This type alias represents the format that the testing data should be
@@ -59,7 +74,23 @@ def load_analogies(filename: str) -> AnalogiesDataset:
         format of the data is described in the problem set and in the
         docstring for the AnalogiesDataset type alias
     """
-    raise NotImplementedError("Problem 2b has not been completed yet!")
+
+    data = {}
+
+    with open(filename, "r", encoding= "utf-8") as f :
+        for line in f :
+            line = line.strip()
+            if not line:
+                continue
+            if line[0] == ":":
+                relation = line[1:].strip()
+                data[relation] = []
+            else :
+                w1, w2, w3, w4 = line.split()
+                data[relation].append((w1, w2, w3, w4))
+    return data   
+
+
 
 
 def run_analogy_test(embeddings: Embeddings, test_data: AnalogiesDataset,
@@ -81,5 +112,30 @@ def run_analogy_test(embeddings: Embeddings, test_data: AnalogiesDataset,
         attained by embeddings on analogies from that relation type
     """
 
-    # Need to implement
-    raise NotImplementedError("Problem 3d has not been completed yet!")
+
+
+    results = {}
+
+    for relation, analogies in test_data.items():
+        correct = 0
+        total = 0
+
+        for w1, w2, w3, w4 in analogies:
+            if w1 not in embeddings or w2 not in embeddings or w3 not in embeddings or w4 not in embeddings:
+                continue
+
+            target = embeddings[[w2]] - embeddings[[w1]] + embeddings[[w3]]
+
+            sims = cosine_sim(target, embeddings.vectors).reshape(-1)
+            sims[embeddings.indices[w1]] = -np.inf
+            sims[embeddings.indices[w2]] = -np.inf
+            sims[embeddings.indices[w3]] = -np.inf
+
+            topk = np.argpartition(-sims, k-1)[:k]
+            if embeddings.indices[w4] in topk:
+                correct += 1
+            total += 1
+
+        results[relation] = correct / total if total > 0 else 0.0
+
+    return results     
